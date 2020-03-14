@@ -10,6 +10,11 @@ package frc.robot;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.OI.OperatorInterface;
+import frc.robot.subsystems.Drivetrain;
+import frc.robot.subsystems.Intake;
+import frc.robot.subsystems.Storage;
+import frc.robot.subsystems.shooter.Shooter;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -18,9 +23,67 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
  * project.
  */
 public class Robot extends TimedRobot {
-  private Command m_autonomousCommand;
+  private static Robot instance;
+  public static Robot getInstance() {
+    if (instance == null) {
+      instance = new Robot();
+    }
 
-  private RobotContainer m_robotContainer;
+    return instance;
+  }
+
+  private final Drivetrain drivetrain;
+
+  private final Shooter shooter;
+  private final Intake intake;
+  private final Storage storage;
+
+  private Robot() {
+    drivetrain = Drivetrain.getInstance();
+    shooter = Shooter.getInstance();
+    intake = Intake.getInstance();
+    storage = Storage.getInstance();
+  }
+
+  private boolean auto = false;
+
+  public enum State {
+    IDLE, // Default state
+    INTAKE,
+    SHOOTING,
+    CLIMBING
+  }
+
+  private State globalState = State.IDLE;
+
+  public State getGlobalState() {
+    return globalState;
+  }
+
+  public void transitionToShooting() {
+//    mRobotLogger.log("Changing to shoot because our driver said so...");
+    //noinspection SwitchStatementWithTooFewBranches
+    switch (globalState) {
+
+      /* Disables intake if transitioning from intake */
+      case INTAKE:
+        intake.stop();
+        storage.stop();
+        // TODO: Make sure this gets set once we migrate the intake state!
+//        mIntakeState = IntakeState.IDLE;
+        break;
+      default:
+        break;
+    }
+    globalState = State.SHOOTING;
+
+    shooter.prepareToShoot();
+  }
+
+  public void transitionToIntake() {
+    globalState = State.INTAKE;
+  }
+
 
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -28,9 +91,6 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
-    // autonomous chooser on the dashboard.
-    m_robotContainer = new RobotContainer();
   }
 
   /**
@@ -54,23 +114,17 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void disabledInit() {
+    OperatorInterface.mapTest();
+    auto = false;
   }
 
   @Override
   public void disabledPeriodic() {
   }
 
-  /**
-   * This autonomous runs the autonomous command selected by your {@link RobotContainer} class.
-   */
   @Override
   public void autonomousInit() {
-    m_autonomousCommand = m_robotContainer.getAutonomousCommand();
-
-    // schedule the autonomous command (example)
-    if (m_autonomousCommand != null) {
-      m_autonomousCommand.schedule();
-    }
+    auto = true;
   }
 
   /**
@@ -82,13 +136,8 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopInit() {
-    // This makes sure that the autonomous stops running when
-    // teleop starts running. If you want the autonomous to
-    // continue until interrupted by another command, remove
-    // this line or comment it out.
-    if (m_autonomousCommand != null) {
-      m_autonomousCommand.cancel();
-    }
+    OperatorInterface.mapTeleop();
+
   }
 
   /**
